@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>درصدگیر کنکور</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#33475a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#eef1f5; --paper-line:#c7d0da;
+    --card:#ffffff; --card-edge:#dbe2e9;
+    --ink:#1f2a37; --ink-dim:#67768a;
+    --pencil:#33475a;
+    --correct:#2f855a; --correct-bg:#e3f3ea;
+    --wrong:#c0392b; --wrong-bg:#fbe9e7;
+    --badge:#33475a;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100%; font-family:'Vazirmatn',sans-serif; color:var(--ink);
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/100% 34px,
+      var(--paper);
+    padding:20px 14px 40px;
+  }
+  .wrap{ max-width:480px; margin:0 auto; }
+  header{ margin-bottom:18px; }
+  h1{ font-size:22px; font-weight:700; margin:0 0 4px; }
+  .sub{ font-size:13px; color:var(--ink-dim); margin:0; }
+
+  .summary{
+    background:var(--pencil); color:#fff;
+    border-radius:14px; padding:16px 18px;
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:16px;
+  }
+  .summary .label{ font-size:12px; opacity:.75; }
+  .summary .val{ font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; }
+
+  .rows{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+  .row{
+    background:var(--card); border:1px solid var(--card-edge);
+    border-radius:12px; padding:12px 14px;
+  }
+  .row-top{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .row-top input[type=text]{
+    flex:1; border:none; background:transparent; font-family:'Vazirmatn',sans-serif;
+    font-size:15px; font-weight:600; color:var(--ink); padding:2px 0;
+  }
+  .row-top input[type=text]:focus{ outline:none; border-bottom:1px solid var(--pencil); }
+  .del{
+    border:none; background:none; color:var(--ink-dim); font-size:18px;
+    line-height:1; cursor:pointer; padding:4px 6px;
+  }
+  .fields{ display:grid; grid-template-columns:repeat(3,1fr) auto; gap:8px; align-items:end; }
+  .field label{ display:block; font-size:11px; color:var(--ink-dim); margin-bottom:3px; }
+  .field input[type=number]{
+    width:100%; border:1px solid var(--card-edge); border-radius:8px;
+    padding:7px 6px; font-family:'JetBrains Mono',monospace; font-size:14px;
+    text-align:center; color:var(--ink); background:#fbfcfd;
+  }
+  .field.correct input{ color:var(--correct); }
+  .field.wrong input{ color:var(--wrong); }
+  .badge{
+    width:52px; height:52px; border-radius:50%;
+    background:var(--badge); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .badge .n{ font-size:13px; font-weight:700; }
+  .badge .p{ font-size:8px; opacity:.7; margin-top:-1px; }
+  .badge.neg{ background:var(--wrong); }
+
+  .add-btn{
+    width:100%; border:1.5px dashed var(--card-edge); background:transparent;
+    border-radius:12px; padding:12px; color:var(--ink-dim); font-size:14px;
+    font-family:'Vazirmatn',sans-serif; cursor:pointer;
+  }
+  .add-btn:active{ background:rgba(0,0,0,.03); }
+
+  footer{ margin-top:16px; font-size:11px; color:var(--ink-dim); line-height:1.9; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>درصدگیر کنکور</h1>
+    <p class="sub">تعداد سؤال، پاسخ درست و غلط هر درس رو وارد کن</p>
+  </header>
+
+  <div class="summary">
+    <div>
+      <div class="label">میانگین درصد کل</div>
+      <div class="val" id="avgVal">۰٪</div>
+    </div>
+    <div style="text-align:left">
+      <div class="label">مجموع سؤالات</div>
+      <div class="val" id="totalVal">۰</div>
+    </div>
+  </div>
+
+  <div class="rows" id="rows"></div>
+  <button class="add-btn" id="addRow">+ افزودن درس</button>
+
+  <footer>
+    فرمول: درصد = (تعداد درست − تعداد غلط ÷ ۳) ÷ کل سؤالات × ۱۰۰<br>
+    اگه بی‌جواب‌ها رو خالی بذاری، خودش از روی کل و درست/غلط حساب می‌شه.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const rowsEl = document.getElementById('rows');
+  const avgEl = document.getElementById('avgVal');
+  const totalEl = document.getElementById('totalVal');
+  let rows = [];
+  let seq = 0;
+
+  const defaultSubjects = ['ادبیات فارسی', 'عربی', 'دین و زندگی', 'زبان انگلیسی'];
+
+  function toFa(n){
+    return String(n).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  }
+
+  function addRow(name){
+    const id = 'r' + (seq++);
+    rows.push({ id, name: name || 'درس جدید', total: '', correct: '', wrong: '' });
+    render();
+  }
+
+  function removeRow(id){
+    rows = rows.filter(r => r.id !== id);
+    render();
+  }
+
+  function calc(r){
+    const total = parseFloat(r.total) || 0;
+    const correct = parseFloat(r.correct) || 0;
+    const wrong = parseFloat(r.wrong) || 0;
+    if(total <= 0) return null;
+    const raw = correct - wrong / 3;
+    const pct = (raw / total) * 100;
+    return { raw, pct };
+  }
+
+  function render(){
+    rowsEl.innerHTML = rows.map(r => {
+      const c = calc(r);
+      const pctText = c === null ? '—' : toFa(c.pct.toFixed(1)) + '٪';
+      const negClass = c !== null && c.pct < 0 ? ' neg' : '';
+      return `
+        <div class="row" data-id="${r.id}">
+          <div class="row-top">
+            <input type="text" class="name" value="${r.name}" placeholder="نام درس">
+            <button class="del" data-del="${r.id}">✕</button>
+          </div>
+          <div class="fields">
+            <div class="field">
+              <label>کل سؤال</label>
+              <input type="number" min="0" class="total" value="${r.total}" inputmode="numeric">
+            </div>
+            <div class="field correct">
+              <label>درست</label>
+              <input type="number" min="0" class="correct" value="${r.correct}" inputmode="numeric">
+            </div>
+            <div class="field wrong">
+              <label>غلط</label>
+              <input type="number" min="0" class="wrong" value="${r.wrong}" inputmode="numeric">
+            </div>
+            <div class="badge${negClass}">
+              <div class="n">${pctText}</div>
+              <div class="p">درصد</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    rowsEl.querySelectorAll('.row').forEach(rowEl => {
+      const id = rowEl.dataset.id;
+      const model = rows.find(r => r.id === id);
+      rowEl.querySelector('.name').addEventListener('input', e => { model.name = e.target.value; });
+      rowEl.querySelector('.total').addEventListener('input', e => { model.total = e.target.value; render(); });
+      rowEl.querySelector('.correct').addEventListener('input', e => { model.correct = e.target.value; render(); });
+      rowEl.querySelector('.wrong').addEventListener('input', e => { model.wrong = e.target.value; render(); });
+      rowEl.querySelector('.del').addEventListener('click', () => removeRow(id));
+    });
+
+    renderSummary();
+  }
+
+  function renderSummary(){
+    const valid = rows.map(calc).filter(c => c !== null);
+    let totalQ = 0;
+    rows.forEach(r => { totalQ += parseFloat(r.total) || 0; });
+    if(valid.length === 0){
+      avgEl.textContent = '۰٪';
+    } else {
+      const avg = valid.reduce((s,c)=>s+c.pct,0) / valid.length;
+      avgEl.textContent = toFa(avg.toFixed(1)) + '٪';
+    }
+    totalEl.textContent = toFa(totalQ);
+  }
+
+  document.getElementById('addRow').addEventListener('click', () => addRow());
+
+  defaultSubjects.forEach(addRow);
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
